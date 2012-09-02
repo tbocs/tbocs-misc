@@ -122,7 +122,7 @@ void signal_callback (int sig) {
 
 int main (int argc, char** argv) {
   signal(SIGTERM, signal_callback);
-  signal(SIGINT, &signal_callback);
+  signal(SIGINT, signal_callback);
   m = new Main();
   m->print_loop();
   delete m;
