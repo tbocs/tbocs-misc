@@ -35,39 +35,51 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define AUTO_OUTPUT_WINDOW
-
 using namespace std; 
 
-int main (int argc, char** argv) {
-  string str_location("/tmp/testing");
-  mkfifo(str_location.c_str(), S_IFIFO | 0666); 
+class Main {
+ public:
+  string str_location;
   stringstream ss;
+  int counter, pipefd;
+  
+  Main () : str_location("/tmp/testing"), counter(0), pipefd(-1) {
+    mkfifo(str_location.c_str(), S_IFIFO | 0666);
 
-#ifdef AUTO_OUTPUT_WINDOW
-  ss << "gnome-terminal -e 'bash -c \"while true; do \
-           if read -t 0.5 line <> " << str_location << "; then \
-             echo Received: $line; \
-           else \
-               kill -0 " << getpid() << "; \
-               if [ $? -ne 0 ]; then \
-                 rm " << str_location << "; exit; fi; \
-           fi; done;\" ' &";
-  system(ss.str().c_str());
-  ss.str("");
-#endif
+    open_output_window();
 
-  int pipefd = -1;
-  while ((pipefd = open(str_location.c_str(), O_RDWR|O_NONBLOCK)) == -1);
-  cout << " == Press CTRL + C to quit == " << endl;
-  int counter = 0;
+    while ((pipefd = open(str_location.c_str(), O_RDWR|O_NONBLOCK)) == -1);
+    cout << " == Press CTRL + C to quit == " << endl;
 
-  while (true) {
-    sleep(1);
-    ss << "Output No. " << counter++ << "\n" ;
-    write(pipefd, ss.str().c_str(), strlen(ss.str().c_str()));
-    cout << "Sent: " << ss.str();
+    while (true) {
+      sleep(1);
+      ss << "Output No. " << counter++ << "\n" ;
+      write(pipefd, ss.str().c_str(), strlen(ss.str().c_str()));
+      cout << "Sent: " << ss.str();
+      ss.str("");
+    }
+  }
+
+  ~Main () {
+    close(pipefd);
+    system(str_location.insert(0, "rm ").c_str());
+  }
+
+  void open_output_window() {
+    ss << "gnome-terminal -e 'bash -c \"while true; do \
+             if read -t 0.5 line <> " << str_location << "; then \
+               echo Received: $line; \
+             else \
+                 kill -0 " << getpid() << "; \
+                 if [ $? -ne 0 ]; then \
+                   rm " << str_location << "; exit; fi; \
+             fi; done;\" ' &";
+    system(ss.str().c_str());
     ss.str("");
   }
+};
+  
+int main (int argc, char** argv) {
+  Main m;
   return 0;
 }
